@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 // Palette sombre
 private val DarkColorScheme = darkColorScheme(
     primary = Teal80,
+    onPrimary = Teal20,
     secondary = Indigo80,
     tertiary = Amber80
 )

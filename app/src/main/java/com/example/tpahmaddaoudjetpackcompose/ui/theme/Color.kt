@@ -11,3 +11,6 @@ val Amber40 = Color(0xFF7A5900)
 val Teal80 = Color(0xFF80D5D6)
 val Indigo80 = Color(0xFFB3C5FF)
 val Amber80 = Color(0xFFF5BF48)
+
+// Texte et icônes posés sur primary en sombre (sinon M3 met du violet par défaut)
+val Teal20 = Color(0xFF003738)

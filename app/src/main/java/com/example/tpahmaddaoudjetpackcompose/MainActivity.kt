@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
@@ -179,6 +180,13 @@ class ProfileViewModel : ViewModel() {
         }
     }
 
+    // un clic sur une compétence la met dans la recherche, un 2e clic efface la recherche
+    fun onSkillClick(skill: String) {
+        publish { state ->
+            state.copy(searchQuery = if (state.searchQuery.trim().equals(skill, ignoreCase = true)) "" else skill)
+        }
+    }
+
     fun onToggleFavoriteFilter() {
         publish { it.copy(showOnlyFavorites = !it.showOnlyFavorites) }
     }
@@ -217,6 +225,7 @@ fun ProfileContainer(
         onSearchQueryChange = viewModel::onSearchQueryChange,
         showOnlyFavorites = uiState.showOnlyFavorites,
         onToggleFavoriteFilter = viewModel::onToggleFavoriteFilter,
+        onSkillClick = viewModel::onSkillClick,
         favoriteProjectIds = uiState.favoriteProjectIds,
         onFavoriteClick = viewModel::onFavoriteClick,
         isAvailable = true,
@@ -252,6 +261,7 @@ fun ProfileScreen(
     onSearchQueryChange: (String) -> Unit,
     showOnlyFavorites: Boolean,
     onToggleFavoriteFilter: () -> Unit,
+    onSkillClick: (String) -> Unit,
     favoriteProjectIds: Set<Int>,
     onFavoriteClick: (Int) -> Unit,
     isAvailable: Boolean,
@@ -284,7 +294,11 @@ fun ProfileScreen(
                 // liste horizontale, un SkillChip par compétence
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(skills) { skill ->
-                        SkillChip(skill = skill)
+                        SkillChip(
+                            skill = skill,
+                            selected = searchQuery.trim().equals(skill, ignoreCase = true),
+                            onClick = { onSkillClick(skill) }
+                        )
                     }
                 }
             }
@@ -304,6 +318,7 @@ fun ProfileScreen(
                 ProjectFilterRow(
                     showOnlyFavorites = showOnlyFavorites,
                     onToggleFavoriteFilter = onToggleFavoriteFilter,
+                    favoriteCount = favoriteProjectIds.size,
                     visibleCount = projects.size
                 )
             }
@@ -357,6 +372,17 @@ fun ProjectSearchBar(
                 imageVector = Icons.Default.Search,
                 contentDescription = null
             )
+        },
+        // la croix n'apparait que s'il y a du texte à effacer
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Effacer la recherche"
+                    )
+                }
+            }
         }
     )
 }
@@ -366,6 +392,7 @@ fun ProjectSearchBar(
 fun ProjectFilterRow(
     showOnlyFavorites: Boolean,
     onToggleFavoriteFilter: () -> Unit,
+    favoriteCount: Int,
     visibleCount: Int,
     modifier: Modifier = Modifier
 ) {
@@ -376,7 +403,7 @@ fun ProjectFilterRow(
         FilterChip(
             selected = showOnlyFavorites,
             onClick = onToggleFavoriteFilter,
-            label = { Text(text = "Favoris uniquement") },
+            label = { Text(text = "Favoris uniquement ($favoriteCount)") },
             leadingIcon = {
                 Icon(
                     imageVector = if (showOnlyFavorites) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -613,13 +640,20 @@ fun AvatarWithBadge(isAvailable: Boolean, modifier: Modifier = Modifier) {
     }
 }
 
-// Une compétence affichée comme une petite pastille
+// Une compétence affichée comme une petite pastille, cliquable pour chercher les projets qui l'utilisent
 @Composable
-fun SkillChip(skill: String, modifier: Modifier = Modifier) {
+fun SkillChip(
+    skill: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Surface(
+        onClick = onClick,
         modifier = modifier,
         shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.secondaryContainer
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
     ) {
         Text(
             text = skill,
@@ -651,6 +685,7 @@ fun ProfileJuniorPreview() {
             onSearchQueryChange = {},
             showOnlyFavorites = false,
             onToggleFavoriteFilter = {},
+            onSkillClick = {},
             favoriteProjectIds = emptySet(),
             onFavoriteClick = {},
             isAvailable = true,
@@ -685,6 +720,7 @@ fun ProfileSearchFavoritesPreview() {
             onSearchQueryChange = {},
             showOnlyFavorites = true,
             onToggleFavoriteFilter = {},
+            onSkillClick = {},
             favoriteProjectIds = favoriteProjectIds,
             onFavoriteClick = {},
             isAvailable = true,
@@ -714,6 +750,7 @@ fun ProfileFullStackPreview() {
             onSearchQueryChange = {},
             showOnlyFavorites = false,
             onToggleFavoriteFilter = {},
+            onSkillClick = {},
             favoriteProjectIds = emptySet(),
             onFavoriteClick = {},
             isAvailable = false,
