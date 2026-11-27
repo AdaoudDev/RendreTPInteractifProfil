@@ -25,11 +25,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -37,6 +42,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,7 +52,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.tpahmaddaoudjetpackcompose.ui.theme.TPAhmadDAOUDJetpackComposeTheme
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,20 +66,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             TPAhmadDAOUDJetpackComposeTheme {
-                ProfileScreen(
-                    name = "Ahmad Daoud",
-                    role = "Développeur Android junior",
-                    description = "Etudiant en M1 à l'ESGI, je développe des applis Android avec Kotlin et Jetpack Compose.",
-                    skills = sampleSkills(),
-                    projects = sampleProjects(),
-                    isAvailable = true,
-                    availability = "Disponible pour une alternance",
-                    email = "ahmad.daoud@exemple.fr",
-                    location = "Paris",
-                    onContactClick = {
-                        // affichera éventuellement le contact
-                    }
-                )
+                ProfileContainer()
             }
         }
     }
@@ -128,6 +128,101 @@ data class ProfileUiState(
     val favoriteProjectIds: Set<Int> = emptySet()
 )
 
+// Garde les projets qui correspondent à la recherche (titre, description ou techno)
+// et, si le filtre est actif, seulement les favoris
+fun filterProjects(
+    projects: List<Project>,
+    searchQuery: String,
+    showOnlyFavorites: Boolean,
+    favoriteProjectIds: Set<Int>
+): List<Project> {
+    val query = searchQuery.trim()
+    return projects.filter { project ->
+        val matchesSearch = query.isEmpty() ||
+            project.title.contains(query, ignoreCase = true) ||
+            project.description.contains(query, ignoreCase = true) ||
+            project.technologies.any { it.contains(query, ignoreCase = true) }
+        val matchesFavorite = !showOnlyFavorites || project.id in favoriteProjectIds
+        matchesSearch && matchesFavorite
+    }
+}
+
+// ViewModel de l'écran profil : il garde l'état et réagit aux actions de l'utilisateur
+class ProfileViewModel : ViewModel() {
+
+    // tous les projets, la liste affichée est calculée à partir de celle-ci
+    private val allProjects = sampleProjects()
+
+    // état modifiable, privé : seul le ViewModel peut le changer
+    private val _uiState = MutableStateFlow(ProfileUiState(projects = allProjects))
+
+    // version publique en lecture seule, observée par l'interface
+    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+
+    fun onSearchQueryChange(query: String) {
+        publish { it.copy(searchQuery = query) }
+    }
+
+    fun onFavoriteClick(projectId: Int) {
+        publish { state ->
+            val favorites = state.favoriteProjectIds
+            state.copy(
+                favoriteProjectIds = if (projectId in favorites) favorites - projectId else favorites + projectId
+            )
+        }
+    }
+
+    fun onToggleFavoriteFilter() {
+        publish { it.copy(showOnlyFavorites = !it.showOnlyFavorites) }
+    }
+
+    // applique le changement puis recalcule la liste affichée avant de publier le nouvel état
+    private fun publish(change: (ProfileUiState) -> ProfileUiState) {
+        _uiState.update { state ->
+            val newState = change(state)
+            newState.copy(
+                projects = filterProjects(
+                    projects = allProjects,
+                    searchQuery = newState.searchQuery,
+                    showOnlyFavorites = newState.showOnlyFavorites,
+                    favoriteProjectIds = newState.favoriteProjectIds
+                )
+            )
+        }
+    }
+}
+
+// Fait le lien entre le ViewModel et Compose : collecte l'état et le passe à l'écran
+@Composable
+fun ProfileContainer(
+    modifier: Modifier = Modifier,
+    viewModel: ProfileViewModel = viewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    ProfileScreen(
+        name = "Ahmad Daoud",
+        role = "Développeur Android junior",
+        description = "Etudiant en M1 à l'ESGI, je développe des applis Android avec Kotlin et Jetpack Compose.",
+        skills = sampleSkills(),
+        projects = uiState.projects,
+        searchQuery = uiState.searchQuery,
+        onSearchQueryChange = viewModel::onSearchQueryChange,
+        showOnlyFavorites = uiState.showOnlyFavorites,
+        onToggleFavoriteFilter = viewModel::onToggleFavoriteFilter,
+        favoriteProjectIds = uiState.favoriteProjectIds,
+        onFavoriteClick = viewModel::onFavoriteClick,
+        isAvailable = true,
+        availability = "Disponible pour une alternance",
+        email = "ahmad.daoud@exemple.fr",
+        location = "Paris",
+        onContactClick = {
+            // affichera éventuellement le contact
+        },
+        modifier = modifier
+    )
+}
+
 // Les compétences affichées dans la LazyRow
 fun sampleSkills(): List<String> = listOf(
     "Kotlin",
@@ -138,6 +233,7 @@ fun sampleSkills(): List<String> = listOf(
 )
 
 // Ecran principal de l'appli, tout l'écran est une LazyColumn
+// stateless : il reçoit l'état en paramètres et remonte les actions par des callbacks
 @Composable
 fun ProfileScreen(
     name: String,
@@ -145,6 +241,12 @@ fun ProfileScreen(
     description: String,
     skills: List<String>,
     projects: List<Project>,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    showOnlyFavorites: Boolean,
+    onToggleFavoriteFilter: () -> Unit,
+    favoriteProjectIds: Set<Int>,
+    onFavoriteClick: (Int) -> Unit,
     isAvailable: Boolean,
     availability: String,
     email: String,
@@ -185,6 +287,24 @@ fun ProfileScreen(
                     style = MaterialTheme.typography.titleMedium
                 )
             }
+            item {
+                ProjectSearchBar(
+                    query = searchQuery,
+                    onQueryChange = onSearchQueryChange
+                )
+            }
+            item {
+                ProjectFilterRow(
+                    showOnlyFavorites = showOnlyFavorites,
+                    onToggleFavoriteFilter = onToggleFavoriteFilter,
+                    visibleCount = projects.size
+                )
+            }
+            if (projects.isEmpty()) {
+                item {
+                    EmptyProjectsMessage(showOnlyFavorites = showOnlyFavorites)
+                }
+            }
             // une ProjectCard par projet, l'id sert de clé
             items(projects, key = { it.id }) { project ->
                 ProjectCard(project = project)
@@ -205,6 +325,91 @@ fun ProfileScreen(
             }
         }
     }
+}
+
+// Champ de recherche des projets
+@Composable
+fun ProjectSearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = modifier.fillMaxWidth(),
+        singleLine = true,
+        label = { Text(text = "Rechercher un projet") },
+        placeholder = { Text(text = "Titre, techno ou description") },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null
+            )
+        }
+    )
+}
+
+// Filtre "favoris uniquement" + nombre de projets affichés
+@Composable
+fun ProjectFilterRow(
+    showOnlyFavorites: Boolean,
+    onToggleFavoriteFilter: () -> Unit,
+    visibleCount: Int,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        FilterChip(
+            selected = showOnlyFavorites,
+            onClick = onToggleFavoriteFilter,
+            label = { Text(text = "Favoris uniquement") },
+            leadingIcon = {
+                Icon(
+                    imageVector = if (showOnlyFavorites) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = null,
+                    modifier = Modifier.size(FilterChipDefaults.IconSize)
+                )
+            },
+            colors = FilterChipDefaults.filterChipColors(
+                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary
+            )
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+            text = projectCountLabel(visibleCount),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+// "1 projet affiché", "4 projets affichés" (0 reste au singulier en français)
+fun projectCountLabel(count: Int): String {
+    val plural = if (count > 1) "s" else ""
+    return "$count projet$plural affiché$plural"
+}
+
+// Message quand aucun projet n'est affiché
+@Composable
+fun EmptyProjectsMessage(showOnlyFavorites: Boolean, modifier: Modifier = Modifier) {
+    Text(
+        text = if (showOnlyFavorites) {
+            "Aucun projet favori ne correspond."
+        } else {
+            "Aucun projet ne correspond à la recherche."
+        },
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp)
+    )
 }
 
 // Carte d'un projet
@@ -400,6 +605,12 @@ fun ProfileJuniorPreview() {
             description = "Etudiant en M1 à l'ESGI, je développe des applis Android avec Kotlin et Jetpack Compose.",
             skills = listOf("Kotlin", "Jetpack Compose", "Git"),
             projects = sampleProjects(),
+            searchQuery = "",
+            onSearchQueryChange = {},
+            showOnlyFavorites = false,
+            onToggleFavoriteFilter = {},
+            favoriteProjectIds = emptySet(),
+            onFavoriteClick = {},
             isAvailable = true,
             availability = "Disponible pour une alternance",
             email = "ahmad.daoud@exemple.fr",
@@ -423,6 +634,12 @@ fun ProfileFullStackPreview() {
                 Project(1, "Appli de réservation", "Site de réservation pour un restaurant.", listOf("React", "Node.js")),
                 Project(2, "API de paiement", "API pour gérer les paiements d'une boutique.", listOf("TypeScript", "PostgreSQL"))
             ),
+            searchQuery = "",
+            onSearchQueryChange = {},
+            showOnlyFavorites = false,
+            onToggleFavoriteFilter = {},
+            favoriteProjectIds = emptySet(),
+            onFavoriteClick = {},
             isAvailable = false,
             availability = "Pas disponible, en mission jusqu'en mars 2027",
             email = "sarah.martin@exemple.fr",
