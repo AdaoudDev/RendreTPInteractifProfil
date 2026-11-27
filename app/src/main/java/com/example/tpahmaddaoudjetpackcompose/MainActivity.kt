@@ -28,6 +28,8 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
@@ -36,14 +38,19 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -307,7 +314,11 @@ fun ProfileScreen(
             }
             // une ProjectCard par projet, l'id sert de clé
             items(projects, key = { it.id }) { project ->
-                ProjectCard(project = project)
+                ProjectCard(
+                    project = project,
+                    isFavorite = project.id in favoriteProjectIds,
+                    onFavoriteClick = { onFavoriteClick(project.id) }
+                )
             }
             item {
                 ContactCard(
@@ -412,9 +423,14 @@ fun EmptyProjectsMessage(showOnlyFavorites: Boolean, modifier: Modifier = Modifi
     )
 }
 
-// Carte d'un projet
+// Carte d'un projet, avec un coeur pour l'ajouter ou le retirer des favoris
 @Composable
-fun ProjectCard(project: Project, modifier: Modifier = Modifier) {
+fun ProjectCard(
+    project: Project,
+    isFavorite: Boolean,
+    onFavoriteClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
@@ -430,7 +446,7 @@ fun ProjectCard(project: Project, modifier: Modifier = Modifier) {
                 tint = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = project.title,
                     style = MaterialTheme.typography.titleMedium
@@ -446,11 +462,20 @@ fun ProjectCard(project: Project, modifier: Modifier = Modifier) {
                     color = MaterialTheme.colorScheme.primary
                 )
             }
+            IconButton(onClick = onFavoriteClick) {
+                Icon(
+                    imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = if (isFavorite) "Retirer des favoris" else "Ajouter aux favoris",
+                    tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
 
 // Carte contact avec les infos en lecture seule
+// l'état "infos affichées ou non" reste local : seule cette carte en a besoin,
+// rememberSaveable le garde quand on tourne l'écran
 @Composable
 fun ContactCard(
     email: String,
@@ -458,6 +483,8 @@ fun ContactCard(
     availability: String,
     modifier: Modifier = Modifier
 ) {
+    var showContactInfo by rememberSaveable { mutableStateOf(false) }
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium
@@ -467,10 +494,25 @@ fun ContactCard(
                 text = "Contact",
                 style = MaterialTheme.typography.titleMedium
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            ContactInfo(icon = Icons.Default.Email, label = "Email", value = email)
-            ContactInfo(icon = Icons.Default.LocationOn, label = "Localisation", value = location)
-            ContactInfo(icon = Icons.Default.Event, label = "Disponibilité", value = availability)
+            TextButton(onClick = { showContactInfo = !showContactInfo }) {
+                Icon(
+                    imageVector = if (showContactInfo) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (showContactInfo) {
+                        "Masquer les informations de contact"
+                    } else {
+                        "Afficher les informations de contact"
+                    }
+                )
+            }
+            if (showContactInfo) {
+                ContactInfo(icon = Icons.Default.Email, label = "Email", value = email)
+                ContactInfo(icon = Icons.Default.LocationOn, label = "Localisation", value = location)
+                ContactInfo(icon = Icons.Default.Event, label = "Disponibilité", value = availability)
+            }
         }
     }
 }
