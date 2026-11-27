@@ -629,8 +629,8 @@ fun SkillChip(skill: String, modifier: Modifier = Modifier) {
     }
 }
 
-// Preview 1 : profil android junior dispo, en clair et en sombre
-// heightDp pour voir tout l'écran d'un coup
+// Preview 1 : état de départ, recherche vide, tous les projets affichés, aucun favori
+// en clair et en sombre, heightDp pour voir tout l'écran d'un coup
 @Preview(showBackground = true, heightDp = 1300, name = "Junior Android - clair")
 @Preview(
     showBackground = true,
@@ -662,7 +662,41 @@ fun ProfileJuniorPreview() {
     }
 }
 
-// Preview 2 : profil full-stack pas dispo, avec d'autres compétences
+// Preview 2 : recherche "kotlin" active, filtre favoris activé, 3 projets en favoris
+// la liste est calculée avec filterProjects, comme dans le ViewModel, mais sans lui
+@Preview(showBackground = true, heightDp = 1300, name = "Recherche + favoris")
+@Composable
+fun ProfileSearchFavoritesPreview() {
+    val searchQuery = "kotlin"
+    val favoriteProjectIds = setOf(1, 4, 5)
+    TPAhmadDAOUDJetpackComposeTheme {
+        ProfileScreen(
+            name = "Ahmad Daoud",
+            role = "Développeur Android junior",
+            description = "Etudiant en M1 à l'ESGI, je développe des applis Android avec Kotlin et Jetpack Compose.",
+            skills = listOf("Kotlin", "Jetpack Compose", "Git"),
+            projects = filterProjects(
+                projects = sampleProjects(),
+                searchQuery = searchQuery,
+                showOnlyFavorites = true,
+                favoriteProjectIds = favoriteProjectIds
+            ),
+            searchQuery = searchQuery,
+            onSearchQueryChange = {},
+            showOnlyFavorites = true,
+            onToggleFavoriteFilter = {},
+            favoriteProjectIds = favoriteProjectIds,
+            onFavoriteClick = {},
+            isAvailable = true,
+            availability = "Disponible pour une alternance",
+            email = "ahmad.daoud@exemple.fr",
+            location = "Paris",
+            onContactClick = {}
+        )
+    }
+}
+
+// Preview 3 : profil full-stack pas dispo, avec d'autres compétences
 @Preview(showBackground = true, name = "Full-stack pas dispo")
 @Composable
 fun ProfileFullStackPreview() {
