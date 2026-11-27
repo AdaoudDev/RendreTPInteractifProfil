@@ -77,7 +77,7 @@ data class Project(
     val id: Int,
     val title: String,
     val description: String,
-    val tech: String
+    val technologies: List<String>
 )
 
 // Données en dur pour l'appli, pas d'API
@@ -86,20 +86,46 @@ fun sampleProjects(): List<Project> = listOf(
         id = 1,
         title = "Product Explorer",
         description = "Appli de catalogue produits faite pendant les TP Compose.",
-        tech = "Kotlin · Jetpack Compose"
+        technologies = listOf("Kotlin", "Jetpack Compose", "ViewModel")
     ),
     Project(
         id = 2,
         title = "Fiche Profil",
         description = "Premier écran Compose avec une fiche de présentation.",
-        tech = "Kotlin · Material 3"
+        technologies = listOf("Kotlin", "Material 3")
     ),
     Project(
         id = 3,
         title = "Site perso",
         description = "Petit site pour présenter mes projets et mon CV.",
-        tech = "HTML · CSS · Git"
+        technologies = listOf("HTML", "CSS", "Git")
+    ),
+    Project(
+        id = 4,
+        title = "Profil développeur interactif",
+        description = "Cette appli : mon profil avec recherche et favoris sur les projets.",
+        technologies = listOf("Kotlin", "Jetpack Compose", "StateFlow")
+    ),
+    Project(
+        id = 5,
+        title = "Blockchain Python",
+        description = "Petite blockchain pour comprendre les blocs, le hachage et la validation.",
+        technologies = listOf("Python", "Git")
+    ),
+    Project(
+        id = 6,
+        title = "Algorithmique Python",
+        description = "Exercices d'algo : tris, recherche et récursivité.",
+        technologies = listOf("Python")
     )
+)
+
+// Etat de l'écran principal, publié par le ViewModel
+data class ProfileUiState(
+    val projects: List<Project> = emptyList(),
+    val searchQuery: String = "",
+    val showOnlyFavorites: Boolean = false,
+    val favoriteProjectIds: Set<Int> = emptySet()
 )
 
 // Les compétences affichées dans la LazyRow
@@ -210,7 +236,7 @@ fun ProjectCard(project: Project, modifier: Modifier = Modifier) {
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = project.tech,
+                    text = project.technologies.joinToString(" · "),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -394,8 +420,8 @@ fun ProfileFullStackPreview() {
             description = "5 ans d'expérience en web et mobile, surtout sur des API et du React.",
             skills = listOf("TypeScript", "React", "Node.js", "PostgreSQL", "Docker"),
             projects = listOf(
-                Project(1, "Appli de réservation", "Site de réservation pour un restaurant.", "React · Node.js"),
-                Project(2, "API de paiement", "API pour gérer les paiements d'une boutique.", "TypeScript · PostgreSQL")
+                Project(1, "Appli de réservation", "Site de réservation pour un restaurant.", listOf("React", "Node.js")),
+                Project(2, "API de paiement", "API pour gérer les paiements d'une boutique.", listOf("TypeScript", "PostgreSQL"))
             ),
             isAvailable = false,
             availability = "Pas disponible, en mission jusqu'en mars 2027",
